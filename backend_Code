@@ -26,3 +26,94 @@ mongoose.connect(process.env.MONGO_URI, {
   });
 }).catch(err => console.error(err));
 
+// === models/Customer.js ===
+const mongoose = require('mongoose');
+const customerSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  totalSpend: Number,
+  visits: Number,
+  lastActive: Date,
+});
+module.exports = mongoose.model('Customer', customerSchema);
+
+
+// === models/Order.js ===
+const orderSchema = new mongoose.Schema({
+  customerId: mongoose.Schema.Types.ObjectId,
+  amount: Number,
+  date: Date,
+});
+module.exports = mongoose.model('Order', orderSchema);
+
+
+// === models/Campaign.js ===
+const campaignSchema = new mongoose.Schema({
+  name: String,
+  rules: Object, // Store rule JSON
+  audienceSize: Number,
+  messages: [{
+    customerId: mongoose.Schema.Types.ObjectId,
+    message: String,
+    status: { type: String, enum: ['SENT', 'FAILED'] },
+  }],
+  createdAt: { type: Date, default: Date.now },
+});
+module.exports = mongoose.model('Campaign', campaignSchema);
+
+
+// === routes/customerRoutes.js ===
+const express = require('express');
+const Customer = require('../models/Customer');
+const router = express.Router();
+
+router.post('/', async (req, res) => {
+  const customer = new Customer(req.body);
+  await customer.save();
+  res.json(customer);
+});
+
+module.exports = router;
+
+
+// === routes/orderRoutes.js ===
+const express = require('express');
+const Order = require('../models/Order');
+const router = express.Router();
+
+router.post('/', async (req, res) => {
+  const order = new Order(req.body);
+  await order.save();
+  res.json(order);
+});
+
+module.exports = router;
+
+
+// === routes/campaignRoutes.js ===
+const express = require('express');
+const Campaign = require('../models/Campaign');
+const Customer = require('../models/Customer');
+const router = express.Router();
+
+router.post('/', async (req, res) => {
+  const { name, rules } = req.body;
+  const customers = await Customer.find({ totalSpend: { $gt: 10000 } }); // Simulate filter
+  const messages = customers.map(c => ({
+    customerId: c._id,
+    message: `Hi ${c.name}, here’s 10% off on your next order!`,
+    status: Math.random() < 0.9 ? 'SENT' : 'FAILED'
+  }));
+
+  const campaign = new Campaign({ name, rules, audienceSize: customers.length, messages });
+  await campaign.save();
+
+  res.json(campaign);
+});
+
+router.get('/', async (req, res) => {
+  const campaigns = await Campaign.find().sort({ createdAt: -1 });
+  res.json(campaigns);
+});
+
+module.exports = router;
