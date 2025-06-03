@@ -1,0 +1,66 @@
+src/firebase.js
+import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "SENDER_ID",
+  appId: "APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const provider = new GoogleAuthProvider();
+
+// === src/App.js ===
+import React, { useEffect, useState } from 'react';
+import { auth, provider } from './firebase';
+import { signInWithPopup } from 'firebase/auth';
+import axios from 'axios';
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [campaigns, setCampaigns] = useState([]);
+  const [name, setName] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      axios.get('http://localhost:5000/api/campaigns').then(res => setCampaigns(res.data));
+    }
+  }, [user]);
+
+  const handleLogin = async () => {
+    const result = await signInWithPopup(auth, provider);
+    setUser(result.user);
+  };
+
+  const handleCampaign = async () => {
+    await axios.post('http://localhost:5000/api/campaigns', { name, rules: {} });
+    alert('Campaign created');
+  };
+
+  if (!user) return <button onClick={handleLogin}>Login with Google</button>;
+
+  return (
+    <div>
+      <h2>Welcome, {user.displayName}</h2>
+
+      <div>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Campaign Name" />
+        <button onClick={handleCampaign}>Create Campaign</button>
+      </div>
+
+      <h3>Campaign History</h3>
+      <ul>
+        {campaigns.map((c) => (
+          <li key={c._id}>{c.name} - Sent: {c.audienceSize}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default App;
